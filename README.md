@@ -10,13 +10,13 @@ Basic Example (Menu)
 	var ActionBar = window.plugins.actionbar;
 	
 	// Show Logo / Title
-	window.plugins.actionbar.setDisplayOptions(ActionBar.DISPLAY_USE_LOGO | ActionBar.DISPLAY_SHOW_TITLE);
+	ActionBar.setDisplayOptions(ActionBar.DISPLAY_USE_LOGO | ActionBar.DISPLAY_SHOW_TITLE);
 
 	// Set navigation mode (NAVIGATION_MODE_STANDARD is the default)
-	window.plugins.actionbar.setNavigationMode(ActionBar.NAVIGATION_MODE_STANDARD);
+	ActionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_STANDARD);
 	
 	// Set menu items
-	window.plugins.actionbar.setMenu([
+	ActionBar.setMenu([
 		{ icon: 'img/new.png', text: 'New File', show: ActionBar.SHOW_AS_ACTION_ALWAYS, click: function() { alert('Create new file'); } },
 		{ icon: 'img/save.png', text: 'Save',
 		  header: { icon: 'img/save.png', text: 'Save as...' },
@@ -34,12 +34,12 @@ Basic Example (Tabs)
 	var ActionBar = window.plugins.actionbar;
 	
 	// Hide title bar
-	window.plugins.actionbar.setDisplayOptions(0);
+	ActionBar.setDisplayOptions(0);
 	
 	// Set navigation mode to display tabs
-	window.plugins.actionbar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
+	ActionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
 	
-	window.plugins.actionbar.setTabs([
+	ActionBar.setTabs([
 		{ icon: 'img/inbox.png', text: 'Inbox',
 			select: function() { alert('View Inbox!'); },
 			reselect: function() { alert('Refresh Inbox!'); },
