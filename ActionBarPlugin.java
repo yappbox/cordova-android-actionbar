@@ -15,8 +15,6 @@ import android.annotation.TargetApi;
 import android.app.ActionBar;
 import android.app.FragmentTransaction;
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
@@ -32,13 +30,11 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-// TODO: Add support for icons (create drawable for images referenced via URL...)
-
 /**! A naive ActionBar/Menu plugin for Cordova/Android.
  * 
  * @author Mitchell Wheeler
  *
- *	Wraps the bare essentials of ActionBar and it's Menu item to appropriately populate the ActionBar and respond to menu events.
+ *	Wraps the bare essentials of ActionBar and the options menu to appropriately populate the ActionBar in it's various forms.
  */
 @TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
 public class ActionBarPlugin extends CordovaPlugin
@@ -106,12 +102,12 @@ public class ActionBarPlugin extends CordovaPlugin
 		// Special case - TrueType fonts
 		if(uri.endsWith(".ttf"))
 		{
-			for(String base: bases)
+			/*for(String base: bases)
 			{
 				String path = base + uri;
-
+				
 				// TODO: Font load / glyph rendering ("/blah/fontawesome.ttf:\f1234")
-			}
+			}*/
 		}
 		// General bitmap
 		else
@@ -163,7 +159,6 @@ public class ActionBarPlugin extends CordovaPlugin
 	 * 	 icon: 'fonts/fontawesome.ttf?U+0040',
 	 *	 text: 'Contact',
 	 *	 show: SHOW_AS_ACTION_NEVER
-	 *	 // TODO: Support for intents
 	 * }]
 	 * 
 	 * Note: By default all menu items have the show flag SHOW_AS_ACTION_IF_ROOM
