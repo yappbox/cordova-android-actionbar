@@ -214,7 +214,7 @@ public class ActionBarPlugin extends CordovaPlugin
 					}
 					
 					// Build sub-menu
-					buildMenu(submenu, item_def.getJSONArray("menu"), menu_var + "[" + i + "].items");
+					buildMenu(submenu, item_def.getJSONArray("items"), menu_var + "[" + i + "].items");
 				}
 			}
 		}
