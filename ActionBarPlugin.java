@@ -6,6 +6,7 @@
 package com.polychrom.cordova;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -87,20 +88,13 @@ public class ActionBarPlugin extends CordovaPlugin
 		return path;
 	}
 
-	private Drawable getDrawableForURI(String uri)
+	private Drawable getDrawableForURI(String uri_string)
 	{
+		Uri uri = Uri.parse(uri_string);
 		Context ctx = cordova.getActivity();
 
-		// Assume relative to current URL OR android_assets
-		String bases[] = new String[]
-		{
-			removeFilename(webView.getOriginalUrl()),
-			removeFilename(webView.getUrl()),
-			removeFilename("file://android_assets/"),
-		};
-		
 		// Special case - TrueType fonts
-		if(uri.endsWith(".ttf"))
+		if(uri_string.endsWith(".ttf"))
 		{
 			/*for(String base: bases)
 			{
@@ -112,17 +106,59 @@ public class ActionBarPlugin extends CordovaPlugin
 		// General bitmap
 		else
 		{
-			for(String base: bases)
+			if(uri.isAbsolute())
 			{
 				try
 				{
-					String path = base + uri;
-					InputStream stream = ctx.getContentResolver().openInputStream(Uri.parse(path));
+					InputStream stream = ctx.getContentResolver().openInputStream(uri);
 					return new BitmapDrawable(ctx.getResources(), stream);
 				}
 				catch(FileNotFoundException e)
 				{
-					continue;
+					return null;
+				}
+			}
+			else
+			{
+				// Assume relative to current URL OR android_assets
+				String bases[] = new String[]
+				{
+					removeFilename(webView.getOriginalUrl()),
+					removeFilename(webView.getUrl())
+				};
+				
+				for(String base: bases)
+				{
+					String path = base + uri;
+					
+					// Asset
+					if(base.startsWith("file:///android_asset/"))
+					{
+						path = path.substring(22);
+						
+						try
+						{
+							InputStream stream = ctx.getAssets().open(path);
+							return new BitmapDrawable(ctx.getResources(), stream);
+						}
+						catch (IOException e)
+						{
+							continue;
+						}
+					}
+					// General URI
+					else
+					{
+						try
+						{
+							InputStream stream = ctx.getContentResolver().openInputStream(Uri.parse(path));
+							return new BitmapDrawable(ctx.getResources(), stream);
+						}
+						catch(FileNotFoundException e)
+						{
+							continue;
+						}
+					}
 				}
 			}
 		}
@@ -188,7 +224,7 @@ public class ActionBarPlugin extends CordovaPlugin
 					item.setIcon(icon);
 
 					// Default to MenuItem.SHOW_AS_ACTION_IF_ROOM, otherwise take user defined value.
-					item.setShowAsAction(item_def.has("show")? item_def.getInt("show"): MenuItem.SHOW_AS_ACTION_IF_ROOM | MenuItem.SHOW_AS_ACTION_WITH_TEXT);
+					item.setShowAsAction(item_def.has("show")? item_def.getInt("show") : MenuItem.SHOW_AS_ACTION_IF_ROOM | MenuItem.SHOW_AS_ACTION_WITH_TEXT);
 
 					menu_callbacks.put(item, "var item = " + menu_var + "[" + i + "]; if(item.click) item.click();");
 				}
