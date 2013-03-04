@@ -229,13 +229,6 @@ public class ActionBarPlugin extends CordovaPlugin
 	 */
 	private boolean buildMenu(Menu menu, JSONArray definition)
 	{
-		// This is a bit of a hack (should be specific to the request, not global)
-		bases = new String[]
-		{
-			removeFilename(webView.getOriginalUrl()),
-			removeFilename(webView.getUrl())
-		};
-		
 		return buildMenu(menu, definition, "window.plugins.actionbar.menu");
 	}
 
@@ -459,6 +452,13 @@ public class ActionBarPlugin extends CordovaPlugin
 			callbackContext.error("Options menu not initialised");
 			return true;
 		}
+
+		// This is a bit of a hack (should be specific to the request, not global)
+		bases = new String[]
+		{
+			removeFilename(webView.getOriginalUrl()),
+			removeFilename(webView.getUrl())
+		};
 
 		final StringBuffer error = new StringBuffer();
 		JSONObject result = new JSONObject();
