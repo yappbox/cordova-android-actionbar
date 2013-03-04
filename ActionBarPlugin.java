@@ -8,15 +8,16 @@ package com.polychrom.cordova;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
 import android.annotation.TargetApi;
 import android.app.ActionBar;
+import android.app.Activity;
 import android.app.FragmentTransaction;
 import android.content.Context;
 import android.graphics.drawable.BitmapDrawable;
@@ -24,10 +25,23 @@ import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
+import android.text.TextUtils.TruncateAt;
+import android.util.DisplayMetrics;
+import android.util.TypedValue;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.SubMenu;
+import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
+import android.widget.AbsListView;
+import android.widget.BaseAdapter;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.LinearLayout.LayoutParams;
+import android.widget.SpinnerAdapter;
+import android.widget.TextView;
 
 import org.apache.cordova.api.CallbackContext;
 import org.apache.cordova.api.CordovaPlugin;
@@ -53,6 +67,179 @@ public class ActionBarPlugin extends CordovaPlugin
 	
 	// A set of base paths to check for relative paths from
 	String bases[];
+	
+	class IconTextView extends LinearLayout
+	{
+		final ImageView Icon;
+		final TextView Text;
+
+		IconTextView(Context context, Drawable icon, String text)
+		{
+			super(context);
+			Icon = new ImageView(context);
+			Icon.setPadding(8, 8, 8, 8);
+			Icon.setImageDrawable(icon);
+
+            LayoutInflater inflater = LayoutInflater.from(context);
+			Text = (TextView)inflater.inflate(android.R.layout.simple_spinner_dropdown_item, this, false);
+			Text.setText(text);
+
+			addView(Icon, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT));
+			addView(Text);
+		}
+	}
+	
+	class NavigationAdapter extends BaseAdapter implements SpinnerAdapter
+	{
+		class Item
+		{
+			Drawable Icon = null;
+			String Text = "";
+		}
+		
+		final ActionBarPlugin plugin;
+		ArrayList<Item> items = null;
+		
+		int listPreferredItemHeight = -1;
+
+		class GetIconTask extends AsyncTask<String, Void, Drawable>
+		{
+			public final Item item;
+			public Exception exception = null;
+			
+			GetIconTask(Item item)
+			{
+				this.item = item;
+			}
+
+			@Override
+			protected Drawable doInBackground(String... uris)
+			{
+				return getDrawableForURI(uris[0]);
+			}
+			
+			@Override
+			protected void onPostExecute(Drawable icon)
+			{
+				if(icon != null)
+				{
+					item.Icon = icon;
+				}
+			}
+		};
+		
+		NavigationAdapter(ActionBarPlugin plugin)
+		{
+			this.plugin = plugin;
+		}
+		
+		public void setItems(JSONArray new_items)
+		{
+			if(new_items == null || new_items.length() == 0)
+			{
+				this.items = null;
+				return;
+			}
+
+			final Activity ctx = plugin.cordova.getActivity();
+			items = new ArrayList<Item>();
+
+			for(int i = 0; i < new_items.length(); ++i)
+			{
+				try
+				{
+					JSONObject definition = new_items.getJSONObject(i);
+					
+					Item item = new Item();
+					if(!definition.isNull("text")) item.Text = definition.getString("text");
+					if(!definition.isNull("icon"))
+					{
+						new GetIconTask(item).execute(definition.getString("icon"));
+					}
+					
+					items.add(item);
+				}
+				catch(JSONException e)
+				{
+					// Ignore, 
+				}
+			}
+		}
+
+		@Override
+		public int getCount()
+		{
+			return items == null? 0 : items.size();
+		}
+
+		@Override
+		public Object getItem(int position)
+		{
+			return items.get(position);
+		}
+
+		@Override
+		public long getItemId(int position)
+		{
+			return position;
+		}
+
+		@Override
+		public View getView(int position, View convertView, ViewGroup parent)
+		{
+			final Activity ctx = plugin.cordova.getActivity();
+            LayoutInflater inflater = LayoutInflater.from(ctx);
+			TextView view = (TextView)inflater.inflate(android.R.layout.simple_spinner_item, parent, false);
+			view.setText(items.get(position).Text);
+			return view;
+		}
+
+		@Override
+		public View getDropDownView(int position, View convertView, ViewGroup parent)
+		{
+			final Activity ctx = plugin.cordova.getActivity();
+			final Item item = items.get(position);
+			
+			IconTextView view;
+			
+			if(convertView instanceof IconTextView)
+			{
+				view = (IconTextView)convertView;
+				view.Icon.setImageDrawable(item.Icon);
+				view.Text.setText(item.Text);
+			}
+			else
+			{
+				view = new IconTextView(ctx, item.Icon, item.Text);
+			}
+
+			// Get preferred list height
+			if(listPreferredItemHeight == -1)
+			{
+				DisplayMetrics metrics = new DisplayMetrics();
+				ctx.getWindowManager().getDefaultDisplay().getMetrics(metrics);
+				TypedValue value = new TypedValue();
+				ctx.getTheme().resolveAttribute(android.R.attr.listPreferredItemHeight, value, true);
+				listPreferredItemHeight = (int)value.getDimension(metrics);
+			}
+			
+			view.setLayoutParams(new AbsListView.LayoutParams(AbsListView.LayoutParams.MATCH_PARENT, AbsListView.LayoutParams.WRAP_CONTENT));
+			
+			return view;
+		}
+	}
+	
+	NavigationAdapter navigation_adapter = new NavigationAdapter(this);
+	
+	ActionBar.OnNavigationListener navigation_listener = new ActionBar.OnNavigationListener()
+	{
+		@Override
+		public boolean onNavigationItemSelected(int itemPosition, long itemId)
+		{
+			webView.sendJavascript("var item = window.plugins.actionbar.navigation_items[" + itemPosition + "]; if(item.click) item.click();");
+			return true;
+		}
+	};
 	
 	@Override
 	public Object onMessage(String id, Object data)
@@ -408,7 +595,7 @@ public class ActionBarPlugin extends CordovaPlugin
 		"show", "hide", "isShowing", "getHeight",
 		"setMenu", "setTabs",
 		"setDisplayOptions", "getDisplayOptions",
-		"setHomeButtonEnabled", "setIcon", "setLogo",
+		"setHomeButtonEnabled", "setIcon", "setListNavigation", "setLogo",
 		"setDisplayShowHomeEnabled", "setDisplayHomeAsUpEnabled", "setDisplayShowTitleEnabled", "setDisplayUseLogoEnabled",
 		"setNavigationMode", "getNavigationMode", "setSelectedNavigationItem", "getSelectedNavigationItem",
 		"setTitle", "getTitle", "setSubtitle", "getSubtitle"
@@ -453,13 +640,6 @@ public class ActionBarPlugin extends CordovaPlugin
 			return true;
 		}
 
-		// This is a bit of a hack (should be specific to the request, not global)
-		bases = new String[]
-		{
-			removeFilename(webView.getOriginalUrl()),
-			removeFilename(webView.getUrl())
-		};
-
 		final StringBuffer error = new StringBuffer();
 		JSONObject result = new JSONObject();
 
@@ -503,6 +683,13 @@ public class ActionBarPlugin extends CordovaPlugin
 					{
 						try
 						{
+							// This is a bit of a hack (should be specific to the request, not global)
+							bases = new String[]
+							{
+								removeFilename(webView.getOriginalUrl()),
+								removeFilename(webView.getUrl())
+							};
+							
 							if("show".equals(action))
 							{
 								bar.show();
@@ -613,6 +800,17 @@ public class ActionBarPlugin extends CordovaPlugin
 								
 								Drawable drawable = getDrawableForURI(args.getString(0));
 								bar.setIcon(drawable);
+							}
+							else if("setListNavigation".equals(action))
+							{
+								JSONArray items = null;
+								if(args.isNull(0) == false)
+								{
+									items = args.getJSONArray(0);
+								}
+								
+								navigation_adapter.setItems(items);
+								bar.setListNavigationCallbacks(navigation_adapter, navigation_listener);
 							}
 							else if("setLogo".equals(action))
 							{
