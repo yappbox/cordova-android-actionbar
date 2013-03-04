@@ -8,6 +8,9 @@ package com.polychrom.cordova;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -19,6 +22,7 @@ import android.content.Context;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -47,6 +51,9 @@ public class ActionBarPlugin extends CordovaPlugin
 	HashMap<Integer, ActionBar.Tab> tabs = new HashMap<Integer, ActionBar.Tab>();
 	HashMap<MenuItem, String> tab_callbacks = new HashMap<MenuItem, String>();
 	
+	// A set of base paths to check for relative paths from
+	String bases[];
+	
 	@Override
 	public Object onMessage(String id, Object data)
 	{
@@ -54,7 +61,7 @@ public class ActionBarPlugin extends CordovaPlugin
 		{
 			menu = (Menu)data;
 
-			if(menu_definition != null)
+			if(menu_definition != null && menu.size() != menu_definition.length())
 			{
 				menu.clear();
 				menu_callbacks.clear();
@@ -66,7 +73,7 @@ public class ActionBarPlugin extends CordovaPlugin
 			MenuItem item = (MenuItem)data;
 			if(item.getItemId() == android.R.id.home)
 			{
-				// TODO: either go home, or 'go back'
+				webView.sendJavascript("if(window.plugins.actionbar.home_callback) window.plugins.actionbar.home_callback();");
 			}
 			else if(menu_callbacks.containsKey(item))
 			{
@@ -108,25 +115,42 @@ public class ActionBarPlugin extends CordovaPlugin
 		{
 			if(uri.isAbsolute())
 			{
-				try
+				if(uri.getScheme().startsWith("http"))
 				{
-					InputStream stream = ctx.getContentResolver().openInputStream(uri);
-					return new BitmapDrawable(ctx.getResources(), stream);
+					try
+					{
+						URL url = new URL(uri_string);
+						InputStream stream = url.openConnection().getInputStream();
+						return new BitmapDrawable(ctx.getResources(), stream);
+					}
+					catch (MalformedURLException e)
+					{
+						return null;
+					}
+					catch (IOException e)
+					{
+						return null;
+					}
+					catch (Exception e)
+					{
+						return null;
+					}
 				}
-				catch(FileNotFoundException e)
+				else
 				{
-					return null;
+					try
+					{
+						InputStream stream = ctx.getContentResolver().openInputStream(uri);
+						return new BitmapDrawable(ctx.getResources(), stream);
+					}
+					catch(FileNotFoundException e)
+					{
+						return null;
+					}
 				}
 			}
 			else
 			{
-				// Assume relative to current URL OR android_assets
-				String bases[] = new String[]
-				{
-					removeFilename(webView.getOriginalUrl()),
-					removeFilename(webView.getUrl())
-				};
-				
 				for(String base: bases)
 				{
 					String path = base + uri;
@@ -205,23 +229,90 @@ public class ActionBarPlugin extends CordovaPlugin
 	 */
 	private boolean buildMenu(Menu menu, JSONArray definition)
 	{
+		// This is a bit of a hack (should be specific to the request, not global)
+		bases = new String[]
+		{
+			removeFilename(webView.getOriginalUrl()),
+			removeFilename(webView.getUrl())
+		};
+		
 		return buildMenu(menu, definition, "window.plugins.actionbar.menu");
 	}
 
 	private boolean buildMenu(Menu menu, JSONArray definition, String menu_var)
 	{
+		// Sadly MenuItem.setIcon and SubMenu.setIcon have conficting return types (for chaining), thus this can't be done w/ generics :(
+		class GetMenuItemIconTask extends AsyncTask<String, Void, Drawable>
+		{
+			public final MenuItem item;
+			public Exception exception = null;
+			
+			GetMenuItemIconTask(MenuItem item)
+			{
+				this.item = item;
+			}
+
+			@Override
+			protected Drawable doInBackground(String... uris)
+			{
+				return getDrawableForURI(uris[0]);
+			}
+			
+			@Override
+			protected void onPostExecute(Drawable icon)
+			{
+				if(icon != null)
+				{
+					item.setIcon(icon);
+				}
+			}
+		};
+		
+		class GetSubMenuIconTask extends AsyncTask<String, Void, Drawable>
+		{
+			public final SubMenu item;
+			public Exception exception = null;
+			
+			GetSubMenuIconTask(SubMenu item)
+			{
+				this.item = item;
+			}
+
+			@Override
+			protected Drawable doInBackground(String... uris)
+			{
+				return getDrawableForURI(uris[0]);
+			}
+			
+			@Override
+			protected void onPostExecute(Drawable icon)
+			{
+				if(icon != null)
+				{
+					item.setIcon(icon);
+				}
+			}
+		};
+		
 		try
 		{
 			for(int i = 0; i < definition.length(); ++i)
 			{
 				final JSONObject item_def = definition.getJSONObject(i);
 				final String text = item_def.isNull("text")? "" : item_def.getString("text");
-				final Drawable icon = item_def.isNull("icon")? null : getDrawableForURI(item_def.getString("icon"));
 
 				if(!item_def.has("items"))
 				{
 					MenuItem item = menu.add(0, i, i, text);
-					item.setIcon(icon);
+					if(item_def.isNull("icon") == false)
+					{
+						GetMenuItemIconTask task = new GetMenuItemIconTask(item);
+						
+						synchronized(task)
+						{
+							task.execute(item_def.getString("icon"));
+						}
+					}
 
 					// Default to MenuItem.SHOW_AS_ACTION_IF_ROOM, otherwise take user defined value.
 					item.setShowAsAction(item_def.has("show")? item_def.getInt("show") : MenuItem.SHOW_AS_ACTION_IF_ROOM | MenuItem.SHOW_AS_ACTION_WITH_TEXT);
@@ -231,7 +322,15 @@ public class ActionBarPlugin extends CordovaPlugin
 				else
 				{
 					SubMenu submenu = menu.addSubMenu(0, i, i, text);
-					submenu.setIcon(icon);
+					if(item_def.isNull("icon") == false)
+					{
+						GetSubMenuIconTask task = new GetSubMenuIconTask(submenu);
+						
+						synchronized(task)
+						{
+							task.execute(item_def.getString("icon"));
+						}
+					}
 					
 					// Set submenu header
 					if(item_def.has("header"))

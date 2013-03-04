@@ -134,6 +134,11 @@ ActionBar.prototype.getDisplayOptions = function(callback)
 		'ActionBar', 'getDisplayOptions', []);
 };
 
+ActionBar.prototype.setHomeCallback = function(callback)
+{
+	window.plugins.actionbar.home_callback = callback;
+}
+
 ActionBar.prototype.setDisplayShowHomeEnabled = function(showHome, callback)
 {
 	callback = callback || function() {};
