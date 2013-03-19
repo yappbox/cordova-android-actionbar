@@ -141,7 +141,7 @@ public class ActionBarPlugin extends CordovaPlugin
 				return;
 			}
 
-			final Activity ctx = plugin.cordova.getActivity();
+			final Activity ctx = (Activity)plugin.cordova;
 			items = new ArrayList<Item>();
 
 			for(int i = 0; i < new_items.length(); ++i)
@@ -187,8 +187,8 @@ public class ActionBarPlugin extends CordovaPlugin
 		@Override
 		public View getView(int position, View convertView, ViewGroup parent)
 		{
-			final Activity ctx = plugin.cordova.getActivity();
-            LayoutInflater inflater = LayoutInflater.from(ctx);
+			final Activity ctx = (Activity)plugin.cordova;
+            LayoutInflater inflater = LayoutInflater.from(ctx.getActionBar().getThemedContext());
 			TextView view = (TextView)inflater.inflate(android.R.layout.simple_spinner_item, parent, false);
 			view.setText(items.get(position).Text);
 			return view;
@@ -197,7 +197,7 @@ public class ActionBarPlugin extends CordovaPlugin
 		@Override
 		public View getDropDownView(int position, View convertView, ViewGroup parent)
 		{
-			final Activity ctx = plugin.cordova.getActivity();
+			final Activity ctx = (Activity)plugin.cordova;
 			final Item item = items.get(position);
 			
 			IconTextView view;
@@ -210,7 +210,7 @@ public class ActionBarPlugin extends CordovaPlugin
 			}
 			else
 			{
-				view = new IconTextView(ctx, item.Icon, item.Text);
+				view = new IconTextView(ctx.getActionBar().getThemedContext(), item.Icon, item.Text);
 			}
 
 			// Get preferred list height
@@ -285,7 +285,7 @@ public class ActionBarPlugin extends CordovaPlugin
 	private Drawable getDrawableForURI(String uri_string)
 	{
 		Uri uri = Uri.parse(uri_string);
-		Context ctx = cordova.getActivity();
+		Activity ctx = (Activity)cordova;
 
 		// Special case - TrueType fonts
 		if(uri_string.endsWith(".ttf"))
@@ -484,6 +484,7 @@ public class ActionBarPlugin extends CordovaPlugin
 				if(!item_def.has("items"))
 				{
 					MenuItem item = menu.add(0, i, i, text);
+					item.setTitleCondensed(text);
 					if(item_def.isNull("icon") == false)
 					{
 						GetMenuItemIconTask task = new GetMenuItemIconTask(item);
@@ -609,19 +610,21 @@ public class ActionBarPlugin extends CordovaPlugin
 		{
 			return false;
 		}
+		
+		final Activity ctx = (Activity)cordova;
 
 		if("isAvailable".equals(action))
 		{
 			JSONObject result = new JSONObject();
-			result.put("value", cordova.getActivity().getWindow().hasFeature(Window.FEATURE_ACTION_BAR));
+			result.put("value", ctx.getWindow().hasFeature(Window.FEATURE_ACTION_BAR));
 			callbackContext.success(result);
 			return true;
 		}
 
-		final ActionBar bar = cordova.getActivity().getActionBar();
+		final ActionBar bar = ctx.getActionBar();
 		if(bar == null)
 		{
-			Window window = cordova.getActivity().getWindow();
+			Window window = ctx.getWindow();
 			if(!window.hasFeature(Window.FEATURE_ACTION_BAR))
 			{
 				callbackContext.error("ActionBar feature not available, Window.FEATURE_ACTION_BAR must be enabled!");
@@ -710,7 +713,7 @@ public class ActionBarPlugin extends CordovaPlugin
 								
 								if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB)
 								{
-									cordova.getActivity().invalidateOptionsMenu();
+									ctx.invalidateOptionsMenu();
 								}
 							}
 							else if("setTabs".equals(action))
@@ -882,7 +885,7 @@ public class ActionBarPlugin extends CordovaPlugin
 					{
 						synchronized(this)
 						{
-							cordova.getActivity().runOnUiThread(this);
+							ctx.runOnUiThread(this);
 							this.wait();
 						}
 					}
