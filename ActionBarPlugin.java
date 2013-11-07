@@ -639,8 +639,8 @@ public class ActionBarPlugin extends CordovaPlugin
 
 		if(menu == null)
 		{
-			callbackContext.error("Options menu not initialised");
-			return true;
+			//callbackContext.error("Options menu not initialised");
+			//return true;
 		}
 
 		final StringBuffer error = new StringBuffer();
